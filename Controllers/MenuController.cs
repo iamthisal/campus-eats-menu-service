@@ -1,6 +1,7 @@
 using CampusEats.Api.Dtos; 
 using CampusEats.Api.Services; 
 using Microsoft.AspNetCore.Mvc; 
+using Microsoft.AspNetCore.Authorization;
   
 namespace CampusEats.Api.Controllers; 
   
@@ -21,9 +22,11 @@ public class MenuController : ControllerBase
     { 
         var item = _svc.GetById(id); 
         return item is null ? NotFound() : Ok(item); 
-    } 
+    }
+     
   
-    [HttpPost]                         // POST /api/menu 
+    [HttpPost]
+    [Authorize(Roles = "Admin")]                         // POST /api/menu 
     public ActionResult<MenuItemDto> Create( 
         [FromBody] CreateMenuItemDto dto) 
     { 
@@ -34,7 +37,8 @@ public class MenuController : ControllerBase
 
 
 
-     [HttpPut("{id}")]                  // PUT /api/menu/1 
+     [HttpPut("{id}")]
+     [Authorize(Roles = "Admin")]                  // PUT /api/menu/1 
     public IActionResult Update(int id, 
         [FromBody] CreateMenuItemDto dto) 
     { 
@@ -42,7 +46,8 @@ public class MenuController : ControllerBase
         return ok ? NoContent() : NotFound();   // 204/404 
     } 
   
-    [HttpDelete("{id}")]               // DELETE /api/menu/1 
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]               // DELETE /api/menu/1 
     public IActionResult Delete(int id) 
     { 
         var ok = _svc.Delete(id); 
