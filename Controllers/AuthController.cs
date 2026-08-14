@@ -3,6 +3,12 @@ using CampusEats.Api.Dtos;
 using CampusEats.Api.Models; 
 using Microsoft.AspNetCore.Mvc; 
 using Microsoft.EntityFrameworkCore; 
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+
+
   
 namespace CampusEats.Api.Controllers; 
   
@@ -39,5 +45,41 @@ return StatusCode(201, new
      { user.Id, user.Email, user.Role });
 
 }
+
+
+[HttpPost("login")]
+public async Task<IActionResult> Login(LoginDto dto)
+{
+    var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+    if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        return Unauthorized("Invalid credentials");
+
+    return Ok(new { token = CreateToken(user) });
+}
+
+private string CreateToken(User user)
+{
+    var jwt = _cfg.GetSection("Jwt");
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Role, user.Role)
+    };
+
+    var token = new JwtSecurityToken(
+        issuer: jwt["Issuer"], audience: jwt["Audience"],
+        claims: claims,
+        expires: DateTime.UtcNow.AddHours(2),
+        signingCredentials: creds);
+
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}
+
+
 } 
 

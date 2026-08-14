@@ -2,16 +2,58 @@ using CampusEats.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using CampusEats.Api.Services;
 using CampusEats.Api.Models;
+using Microsoft.OpenApi;
+
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+var jwt = builder.Configuration.GetSection("Jwt");
+var key = Encoding.UTF8.GetBytes(jwt["Key"]!);
+ 
+
+
+builder.Services 
+  .AddAuthentication(JwtBearerDefaults.AuthenticationScheme) 
+  .AddJwtBearer(opt => opt.TokenValidationParameters = new() 
+  { 
+      ValidateIssuer = true,   ValidIssuer = jwt["Issuer"], 
+      ValidateAudience = true, ValidAudience = jwt["Audience"], 
+      ValidateIssuerSigningKey = true, 
+      IssuerSigningKey = new SymmetricSecurityKey(key), 
+      ValidateLifetime = true 
+  }); 
+builder.Services.AddAuthorization(); 
+
+
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Paste ONLY the token - no 'Bearer ' prefix."
+    });
+
+    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        { new OpenApiSecuritySchemeReference("Bearer", document, null), new List<string>() }
+    });
+});
+
 builder.Services.AddScoped<IMenuService, MenuService>();
 
 // Allow the React dev server to call this API
@@ -62,7 +104,9 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp");
 
-app.UseAuthorization();
+
+app.UseAuthentication(); // who are you? (validates JWT)
+app.UseAuthorization();  // may you? (checks roles)
 
 app.MapControllers();
 
